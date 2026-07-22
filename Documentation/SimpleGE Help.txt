@@ -1,0 +1,129 @@
+Help on module SimpleGE:
+
+NAME
+    SimpleGE
+
+CLASSES
+    builtins.object
+        Entity
+            Game
+            State
+
+    class Entity(builtins.object)
+     |  Entity(x, y, w, h)
+     |
+     |  Methods defined here:
+     |
+     |  __init__(self, x, y, w, h)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |
+     |  collide(self, other)
+     |
+     |  debugRect(self, renderTarget)
+     |
+     |  handleEvent(self, event)
+     |
+     |  render(self, renderTarget)
+     |
+     |  update(self)
+     |
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+
+    class Game(Entity)
+     |  Game(title, dispW, dispH, resW, resH, flags)
+     |
+     |  Method resolution order:
+     |      Game
+     |      Entity
+     |      builtins.object
+     |
+     |  Methods defined here:
+     |
+     |  __del__(self)
+     |
+     |  __init__(self, title, dispW, dispH, resW, resH, flags)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |
+     |  handleEvents(self)
+     |
+     |  popState(self, index)
+     |
+     |  pushState(self, state)
+     |
+     |  render(self, renderTarget)
+     |
+     |  run(self)
+     |
+     |  tick(self)
+     |
+     |  update(self)
+     |
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from Entity:
+     |
+     |  collide(self, other)
+     |
+     |  debugRect(self, renderTarget)
+     |
+     |  handleEvent(self, event)
+     |
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from Entity:
+     |
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+
+    class State(Entity)
+     |  State(x, y, w, h)
+     |
+     |  Method resolution order:
+     |      State
+     |      Entity
+     |      builtins.object
+     |
+     |  Methods defined here:
+     |
+     |  __init__(self, x, y, w, h)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |
+     |  render(self, renderTarget)
+     |
+     |  update(self)
+     |
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from Entity:
+     |
+     |  collide(self, other)
+     |
+     |  debugRect(self, renderTarget)
+     |
+     |  handleEvent(self, event)
+     |
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from Entity:
+     |
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+
+DATA
+    COLLIDEMODE_RADIUS = 1
+    COLLIDEMODE_RECT = 0
+    RENDERMODE_CENTER = 2
+    RENDERMODE_NATIVE = 0
+    RENDERMODE_STRETCH = 1
+
+FILE
+    c:\users\thoma\desktop\simplege.py
