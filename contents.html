@@ -20,6 +20,76 @@
      </div>
      <div class="content-block">
         <h2 class="content-header">Table of Contents:</h2>
+        
+        <h2 class="content-header">Entity (x, y, w, h)</h2>
+        <p class="content-description">Methods include:</p>
+        <ul class="table-info">
+            <li>__init__(self, x, y, w, h)</li>
+            <li> collide(self, other)</li>
+            <li>debugRect(self, renderTarget)</li>
+            <li>handleEvent(self, event)</li>
+            <li>render(self, renderTarget)</li>
+            <li>update(self)</li>
+        </ul>
+        <p class="content-description">Data descriptions defined as:</p>
+        <p class="content-description">__dict__ (dictionary for instance variables, if defined)</p>
+        <p class="content-description">__weakref__ (list of weak references to the object, if defined)</p>
+        <p class="content-description">Function References: (Look for onKeyPress or "self.onKeyPress = none for function reference example.")</p>
+        <p class="content-description">Data : (Look for variables inside Entity class, all self.variables inside constructor. Examples include "visible", "solid", and "active".)</p>
+
+        <h2 class="content-header">Game (title, dispW, dispH, resW, resH, flags)</h2>
+        <p class="content-description">Method Resolution Order:</p>
+        <ul class="table-info">
+            <li>Game</li>
+            <li>Entity</li>
+            <li>builtins.object</li>
+        </ul>
+        <p class="content-description">Methods include:</p>
+        <ul class="table-info">
+            <li>__del__(self)</li>
+            <li>  __init__(self, title, dispW, dispH, 
+                resW, resH, flags)</li>
+            <li>handleEvents(self)</li>
+            <li>popState(self, index)</li>
+            <li>pushState(self, state)</li>
+            <li>render(self, renderTarget)</li>
+            <li>run(self)</li>
+            <li>tick(self)</li>
+            <li>update(self)</li>
+        </ul>
+        <p class="content-description">Methods inherited from Entity:</p>
+        <ul class="table-info">
+            <li>collide(self, other)</li>
+            <li>debugRect(self, renderTarget)</li>
+            <li>handleEvent(self, event)</li>
+        </ul>
+        <p class="content-description"> Data descriptors inherited from Entity:</p>
+        <p class="content-description">__dict__ (dictionary for instance variables, if defined)</p>
+        <p class="content-description">__weakref__ (list of weak references to the object, if defined)</p>
+
+        <h2 class="content-header">State (x, y, w, h)</h2>
+        <P class="content-description">Note: Game and State classes are derived from Entity class.</P>
+        <p class="content-description">Method resolution order:</p>
+        <ul class="table-info">
+            <li>State</li>
+            <li>Entity</li>
+            <li>builtins.object</li>
+        </ul>
+        <p class="content-description">Methods include:</p>
+        <ul class="table-info">
+            <li>__init__(self, x, y, w, h) (Initialize self)</li>
+            <li> class="content-description">render(self, renderTarget)</li>
+            <li>class="content-description">update(self)</li>
+        </ul>
+        <p class="content-description">Methods inherited from Entity:</p>
+        <ul class="table-info">
+            <li>ccollide(self, other)</li>
+            <li>debugRect(self, renderTarget)</li>
+            <li>handleEvent(self, event)</li>
+        </ul>
+        <p class="content-description"> Data descriptors inherited from Entity:</p>
+        <p class="content-description">__dict__ (dictionary for instance variables, if defined)</p>
+        <p class="content-description">__weakref__ (list of weak references to the object, if defined)</p>
     </div>
 
 </body>
