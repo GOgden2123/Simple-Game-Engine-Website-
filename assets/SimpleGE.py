@@ -13,14 +13,16 @@ class Entity:
         self.visible = True
         self.solid = True
         self.debug = False
+        self.getsInput = True
 
         self.img = pg.surface.Surface((w,h))
         self.rect = pg.Rect(x,y,w,h)
         self.renderMode = RENDERMODE_NATIVE
 
         self.collideRect = pg.Rect(x,y,w,h)
+        self.collideRadius = min(w,h)
         self.collideMode = COLLIDEMODE_RECT
-
+        
         self.x = float(x)
         self.y = float(y)
         self.dx = 0.0
@@ -30,7 +32,7 @@ class Entity:
         
         self.onTick = None
 
-        self.onKeyPressed = None
+        self.onKeyPressed = None 
         self.onKeyReleased = None
         self.onKeysDown = None
 
@@ -46,11 +48,8 @@ class Entity:
         self.onJoyButtonsDown = None
 
         self.onJoyAxisMotion = None
-        self.onJoyBallMotion = None
+#         self.onJoyBallMotion = None
         self.onJoyHatMotion = None
-
-        self.onJoyDeviceAdded = None
-        self.onJoyDeviceRemoved = None
 
         return
     #end __init__
@@ -58,7 +57,7 @@ class Entity:
     def handleEvent(self, event):
         if event.type == pg.QUIT:
             self.active = False
-        elif self.active == True:
+        elif self.getsInput == True:
             if event.type == pg.KEYDOWN:
                 if self.onKeyPressed != None:
                     self.onKeyPressed(self, event.key)
@@ -82,6 +81,22 @@ class Entity:
             elif event.type == pg.MOUSEWHEEL:
                 if self.onMouseWheel != None:
                     self.onMouseWheel(self, (event.x, event.y))
+                #end if
+            elif event.type == pg.JOYBUTTONDOWN:
+                if self.onJoyButtonPressed != None:
+                    self.onJoyButtonPressed(self, event.instance_id, event.button)
+                #end if
+            elif event.type == pg.JOYBUTTONUP:
+                if self.onJoyButtonReleased != None:
+                    self.onJoyButtonReleased(self, event.instance_id, event.button)
+                #end if
+            elif event.type == pg.JOYAXISMOTION:
+                if self.onJoyAxisMotion != None:
+                    self.onJoyAxisMotion(self, event.instance_id, event.axis, event.value)
+                #end if
+            elif event.type == pg.JOYHATMOTION:
+                if self.onJoyHatMotion != None:
+                    self.onJoyHatMotion(self, event.instance_id, event.hat, event.value)
                 #end if
             #end if
         #end if
@@ -168,9 +183,7 @@ class State(Entity):
         return
     #end __init__
     
-    def update(self):
-        #self.img.fill((0,0,0))
-        
+    def update(self):        
         if self.active == True:
             for entity in self.entities:
                 entity.update()
@@ -196,10 +209,11 @@ class State(Entity):
         return
     #end render
     
-    def enter(self) -> None:
+    def enter(self):
         self.active = True
         self.visible = True
         self.solid = True
+        self.getsInput = True
         
         if self.onEnter != None:
             self.onEnter(self)
@@ -208,10 +222,11 @@ class State(Entity):
         return
     #end enter
     
-    def exit(self) -> None:
+    def exit(self):
         self.active = False
         self.visible = False
         self.solid = False
+        self.getsInput = False
         
         if self.onExit != None:
             self.onExit(self)
@@ -238,6 +253,12 @@ class Game(Entity):
         self.mousePos = pg.mouse.get_pos()
 
         self.states = []
+        
+        self.onJoyDeviceAdded = None
+        self.onJoyDeviceRemoved = None
+        
+        self.onStart = None
+        self.onQuit = None
 
         return
     #end __init__
@@ -253,13 +274,11 @@ class Game(Entity):
             self.handleEvent(event)
 
             for state in self.states:
-                if state.active == True:
-                    state.handleEvent(event)
+                state.handleEvent(event)
 
-                    for Entity in state.entities:
-                        Entity.handleEvent(event)
-                    #end for
-                #end if
+                for Entity in state.entities:
+                    Entity.handleEvent(event)
+                #end for
             #end for
         #end for
 
@@ -267,20 +286,16 @@ class Game(Entity):
         self.mouseButtonsDown = pg.mouse.get_pressed()
         self.mousePos = pg.mouse.get_pos()
 
-        if self.onKeysDown != None:
+        if self.onKeysDown != None and self.getsInput == True:
             self.onKeysDown(self, self.keysDown)
         #end if
 
-        if self.onMouseButtonsDown != None:
+        if self.onMouseButtonsDown != None and self.getsInput == True:
             self.onMouseButtonsDown(self, self.mouseButtonsDown)
         #end if
 
-#         if self.onMouseMotion != None:
-#             self.onMouseMotion(self, self.mousePos)
-#         #end if
-
         for state in self.states:
-            if state.active == True:
+            if state.getsInput == True:
                 if state.onKeysDown != None:
                     state.onKeysDown(state, self.keysDown)
                 #end if
@@ -288,23 +303,15 @@ class Game(Entity):
                 if state.onMouseButtonsDown != None:
                     state.onMouseButtonsDown(state, self.mouseButtonsDown)
                 #end if
-
-#                 if state.onMouseMotion != None:
-#                     state.onMouseMotion(state, self.mousePos)
-#                 #end if
                     
                 for entity in state.entities:
-                    if entity.onKeysDown != None:
+                    if entity.onKeysDown != None and entity.getsInput == True:
                         entity.onKeysDown(entity, self.keysDown)
                     #end if
 
-                    if entity.onMouseButtonsDown != None:
+                    if entity.onMouseButtonsDown != None and entity.getsInput == True:
                         entity.onMouseButtonsDown(entity, self.mouseButtonsDown)
                     #end if
-
-#                     if entity.onMouseMotion != None:
-#                         entity.onMouseMotion(entity, self.mousePos)
-#                     #end if
                 #end for
             #end if
         #end for
@@ -371,12 +378,20 @@ class Game(Entity):
 
     def run(self):
         try:
+            if self.onStart != None:
+                self.onStart()
+            #end if
+            
             while self.active == True:
+                self.tick()
                 self.handleEvents()
                 self.update()
                 self.render(self.display)
-                self.tick()
             #end while
+                
+            if self.onQuit() != None:
+                self.onQuit()
+            #end if
         except Exception as e:
             print(e)
         #end try
@@ -387,6 +402,8 @@ class Game(Entity):
     def pushState(self, state):
         self.states.append(state)
         
+        self.states[-1].enter()
+        
         if state.onEnter != None:
             state.onEnter(state)
         #end if
@@ -396,6 +413,7 @@ class Game(Entity):
     
     def popState(self, index):
         state = self.states.pop(index)
+        state.exit()
         
         if state.onExit != None:
             state.onExit(state)
