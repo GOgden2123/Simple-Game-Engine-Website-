@@ -1,311 +1,424 @@
-from SimpleGE import *
-from random import randint, choice
+import pygame as pg
 
-DISP_W: int = 800
-DISP_H: int = 800
-RENDER_W: int = 800
-RENDER_H: int = 800
-TILESIZE: int = 160
+COLLIDEMODE_RECT = 0
+COLLIDEMODE_RADIUS = 1
 
-class MenuState(State):
-    def __init__(self) -> None:
-        super().__init__(0,0,RENDER_W,RENDER_H)
+RENDERMODE_NATIVE = 0
+RENDERMODE_STRETCH = 1
+RENDERMODE_CENTER = 2
+
+class Entity:
+    def __init__(self, x, y, w, h):
+        self.active = True
+        self.visible = True
+        self.solid = True
+        self.debug = False
+        self.getsInput = True
+
+        self.img = pg.surface.Surface((w,h))
+        self.rect = pg.Rect(x,y,w,h)
+        self.renderMode = RENDERMODE_NATIVE
+
+        self.collideRect = pg.Rect(x,y,w,h)
+        self.collideRadius = min(w,h)
+        self.collideMode = COLLIDEMODE_RECT
         
-        self.font: pg.font.Font = pg.font.Font(None, size=100)
+        self.x = float(x)
+        self.y = float(y)
+        self.dx = 0.0
+        self.dy = 0.0
+        self.ddx = 0.0
+        self.ddy = 0.0
         
-        tempTextSurf: pg.surface.Surface = self.font.render('Slide Puzzle',False,(255,255,255))
-        self.textSlidePuzzle: Entity = Entity(0,0,tempTextSurf.get_width(), tempTextSurf.get_height())
-        self.textSlidePuzzle.img.blit(tempTextSurf,(0,0))
-        self.textSlidePuzzle.rect.midtop = self.rect.midtop
-        
-        tempTextSurf: pg.surface.Surface = self.font.render('3 x 3',False,(255,255,255))
-        self.text3x3: Entity = Entity(0,100,tempTextSurf.get_width(), tempTextSurf.get_height())
-        self.text3x3.img.blit(tempTextSurf,(0,0))
-        
-        tempTextSurf: pg.surface.Surface = self.font.render('4 x 4',False,(255,255,255))
-        self.text4x4: Entity = Entity(0,200,tempTextSurf.get_width(), tempTextSurf.get_height())
-        self.text4x4.img.blit(tempTextSurf,(0,0))
-        
-        tempTextSurf: pg.surface.Surface = self.font.render('5 x 5',False,(255,255,255))
-        self.text5x5: Entity = Entity(0,300,tempTextSurf.get_width(), tempTextSurf.get_height())
-        self.text5x5.img.blit(tempTextSurf,(0,0))
-        
-        self.entities = [
-            self.textSlidePuzzle
-            ,self.text3x3
-            ,self.text4x4
-            ,self.text5x5
-        ]
-        
+        self.onTick = None
+
+        self.onKeyPressed = None 
+        self.onKeyReleased = None
+        self.onKeysDown = None
+
+        self.onMouseButtonPressed = None
+        self.onMouseButtonReleased = None
+        self.onMouseButtonsDown = None
+
+        self.onMouseMotion = None
+        self.onMouseWheel = None
+
+        self.onJoyButtonPressed = None
+        self.onJoyButtonReleased = None
+        self.onJoyButtonsDown = None
+
+        self.onJoyAxisMotion = None
+#         self.onJoyBallMotion = None
+        self.onJoyHatMotion = None
+
         return
     #end __init__
-#end MenuState
-    
-class Tile(Entity):
-    def __init__(self, x: int, y: int, w: int, h:int, img: pg.surface.Surface, id: int) -> None:
-        super().__init__(x,y,w,h)
-        self.img = img
-        self.id = id
-        
-        return
-    #end __init__
-    
-    def __repr__(self) -> None:
-        return str(self.id)
-    
-    def __str__(self) -> None:
-        return self.__repr__()
-#end Tile
 
-class PlayState(State):
-    def __init__(self, size: int) -> None:        
-        self.size: int = size
-        super().__init__(0,0,TILESIZE*self.size,TILESIZE*self.size)
-        self.scale: float = self.img.get_width() / RENDER_W
-        self.renderMode = RENDERMODE_STRETCH
-        self.mousePos: list = [0,0]
-        
-        self.tileSet: pg.surface.Surface = pg.image.load('gfx/tiles.bmp')
-        self.tileSet.set_colorkey((255,0,255))
-        
-        self.tileGrid: list = [
-            pg.Rect(x, y, TILESIZE, TILESIZE)
-            for y in range(0, self.img.get_height(), TILESIZE)
-            for x in range(0, self.img.get_width(), TILESIZE)
-        ]
-        
-        self.tileImgs: list = [
-            self.tileSet.subsurface((x, y, TILESIZE, TILESIZE))
-            for y in range(0, self.tileSet.get_height(), TILESIZE)
-            for x in range(0, self.tileSet.get_width(), TILESIZE)
-        ]
-            
-        self.onEnter = PlayState.onEnter
-        self.onMouseMotion = PlayState.getMousePos
-        self.onMouseButtonPressed = PlayState.onClick
-        
-        self.setupGrid()
-        
+    def handleEvent(self, event):
+        if event.type == pg.QUIT:
+            self.active = False
+        elif self.getsInput == True:
+            if event.type == pg.KEYDOWN:
+                if self.onKeyPressed != None:
+                    self.onKeyPressed(self, event.key)
+                #end if
+            elif event.type == pg.KEYUP:
+                if self.onKeyReleased != None:
+                    self.onKeyReleased(self, event.key)
+                #end if
+            elif event.type == pg.MOUSEBUTTONDOWN:
+                if self.onMouseButtonPressed != None:
+                    self.onMouseButtonPressed(self, event.button)
+                #end if
+            elif event.type == pg.MOUSEBUTTONUP:
+                if self.onMouseButtonReleased != None:
+                    self.onMouseButtonReleased(self, event.button)
+                #end if
+            elif event.type == pg.MOUSEMOTION:
+                if self.onMouseMotion != None:
+                    self.onMouseMotion(self, event.pos)
+                #end if
+            elif event.type == pg.MOUSEWHEEL:
+                if self.onMouseWheel != None:
+                    self.onMouseWheel(self, (event.x, event.y))
+                #end if
+            elif event.type == pg.JOYBUTTONDOWN:
+                if self.onJoyButtonPressed != None:
+                    self.onJoyButtonPressed(self, event.instance_id, event.button)
+                #end if
+            elif event.type == pg.JOYBUTTONUP:
+                if self.onJoyButtonReleased != None:
+                    self.onJoyButtonReleased(self, event.instance_id, event.button)
+                #end if
+            elif event.type == pg.JOYAXISMOTION:
+                if self.onJoyAxisMotion != None:
+                    self.onJoyAxisMotion(self, event.instance_id, event.axis, event.value)
+                #end if
+            elif event.type == pg.JOYHATMOTION:
+                if self.onJoyHatMotion != None:
+                    self.onJoyHatMotion(self, event.instance_id, event.hat, event.value)
+                #end if
+            #end if
+        #end if
+
         return
-    #end __init__
-    
-    def update(self) -> None:
+    #end handleEvent
+
+    def update(self):
         if self.active == True:
-            for i in range(len(self.entities)):
-                self.entities[i].rect.center = self.tileGrid[i].center
+            self.dx += self.ddx
+            self.dy += self.ddy
+            self.x += self.dx
+            self.y += self.dy
+            self.rect.left = int(self.x)
+            self.rect.top = int(self.y)
+            self.collideRect.center = self.rect.center
+        #end if
+
+        return
+    #end update
+
+    def render(self, renderTarget):
+        if self.visible == True:            
+            if self.renderMode == RENDERMODE_NATIVE:
+                renderTarget.blit(self.img,self.rect)
+            elif self.renderMode == RENDERMODE_STRETCH:
+                pg.transform.scale(
+                    self.img
+                    ,renderTarget.get_size()
+                    ,renderTarget
+                )
+            elif self.renderMode == RENDERMODE_CENTER:
+                renderTarget.blit(
+                    self.img
+                    ,self.rect.move(
+                        int((renderTarget.get_width()-self.img.get_width())/2)
+                        ,int((renderTarget.get_height()-self.img.get_height())/2)
+                    )
+                )
+            #end if
+        #end if
+
+        return
+    #end render
+    
+    def debugRect(self, renderTarget):
+        pg.draw.rect(renderTarget, (255,0,0), self.rect, 1)
+        pg.draw.rect(renderTarget, (0,0,255), self.collideRect, 1)
+        
+        return
+    #end debugRect
+
+    def collide(self, other):
+        if self.solid == True:
+            if isinstance(other,Entity):
+                if self.collideMode == COLLIDEMODE_RECT:
+                    return self.collideRect.colliderect(other.collideRect)
+                elif self.collideMode == COLLIDEMODE_RADIUS:
+                    dx = other.collideRect.center[0] - self.collideRect.center[0]
+                    dy = other.collideRect.center[1] - self.collideRect.center[1]
+                    d = (dx * dx) + (dy * dy)
+                    r = other.collideRadius + self.collideRadius
+                    r = r * r
+                    return d < r
+                #end if
+            else:
+                return False
+            #end if
+        else:
+            return False
+        #end if
+    #end collide
+#end Entity
+
+class State(Entity):
+    def __init__(self,x,y,w,h):
+        super().__init__(x,y,w,h)
+        self.entities = []
+        self.exitCode = 0
+
+        self.onEnter = None
+        self.onExit = None
+
+        return
+    #end __init__
+    
+    def update(self):        
+        if self.active == True:
+            for entity in self.entities:
+                entity.update()
             #end for
+            
+            super().update()
         #end if
         
         return
     #end update
     
-    def shuffleTiles(self) -> None:        
-        for i in range(100):
-            lastLoc: int = [x.id for x in self.entities].index(0)
-            x: int = lastLoc % self.size
-            y: int = int(lastLoc / self.size)
-            neighbors: list = []
-            
-            if y == 0:
-                if x == 0:
-                    neighbors = [
-                        ((y + 0) * self.size + (x + 1))
-                        ,((y + 1) * self.size + (x + 0))
-                    ]
-                elif x > 0 and x < self.size - 1:
-                    neighbors = [
-                        ((y + 0) * self.size + (x - 1))
-                        ,((y + 0) * self.size + (x + 1))
-                        ,((y + 1) * self.size + (x + 0))
-                    ]
-                elif x == self.size - 1:
-                    neighbors = [
-                        ((y + 0) * self.size + (x - 1))
-                        ,((y + 1) * self.size + (x + 0))
-                    ]
-                #end if
-            elif y > 0 and y < self.size - 1:
-                if x == 0:
-                    neighbors = [
-                        ((y + 0) * self.size + (x + 1))
-                        ,((y - 1) * self.size + (x + 0))
-                        ,((y + 1) * self.size + (x + 0))
-                    ]
-                elif x > 0 and x < self.size - 1:
-                    neighbors = [
-                        ((y + 0) * self.size + (x - 1))
-                        ,((y + 0) * self.size + (x + 1))
-                        ,((y - 1) * self.size + (x + 0))
-                        ,((y + 1) * self.size + (x + 0))
-                    ]
-                elif x == self.size - 1:
-                    neighbors = [
-                        ((y + 0) * self.size + (x - 1))
-                        ,((y - 1) * self.size + (x + 0))
-                        ,((y + 1) * self.size + (x + 0))
-                    ]
-                #end if
-            elif y == self.size - 1:
-                if x == 0:
-                    neighbors = [
-                        ((y + 0) * self.size + (x + 1))
-                        ,((y - 1) * self.size + (x + 0))
-                    ]
-                elif x > 0 and x < self.size - 1:
-                    neighbors = [
-                        ((y + 0) * self.size + (x - 1))
-                        ,((y + 0) * self.size + (x + 1))
-                        ,((y - 1) * self.size + (x + 0))
-                    ]
-                elif x == self.size - 1:
-                    neighbors = [
-                        ((y + 0) * self.size + (x - 1))
-                        ,((y - 1) * self.size + (x + 0))
-                    ]
-                #end if
-            #end if
-            
-            self.swapTiles(choice(neighbors))
-        #end for
+    def render(self, renderTarget):
+        self.img.fill((0,0,0))
         
-        return
-    #end shuffleTiles
-    
-    def setupGrid(self) -> None:
-        self.entities = [
-            Tile(x * TILESIZE, y * TILESIZE, TILESIZE, TILESIZE, self.tileImgs[y * self.size + x], y * self.size + x)
-            for y in range(self.size)
-            for x in range(self.size)
-        ]
-        
-        self.shuffleTiles()
+        if self.visible == True:
+            for entity in self.entities:
+                entity.render(self.img)
+            #end for
                 
-        return
-    #end setupGrid
-    
-    def swapTiles(self, i: int) -> None:
-        x: int = i % self.size
-        y: int = int(i / self.size)
-        i2: int = 0
-        temp: Entity = None
-        
-        if x > 0:
-            i2 = (y + 0) * self.size + (x + -1)
-            
-            if self.entities[i2].id == 0:
-#                 print('swapping tile #%d with #%d' % (i, i2))
-                temp = self.entities[i]
-                self.entities[i] = self.entities[i2]
-                self.entities[i2] = temp
-#                 print(self.entities)
-                return
-            #end if
-        #end if
-                
-        if x < self.size - 1:
-            i2 = (y + 0) * self.size + (x + 1)
-            
-            if self.entities[i2].id == 0:
-#                 print('swapping tile #%d with #%d' % (i, i2))
-                temp = self.entities[i]
-                self.entities[i] = self.entities[i2]
-                self.entities[i2] = temp
-#                 print(self.entities)
-                return
-            #end if
-        #end if
-            
-        if y > 0:
-            i2 = (y + -1) * self.size + (x + 0)
-            
-            if self.entities[i2].id == 0:
-#                 print('swapping tile #%d with #%d' % (i, i2))
-                temp = self.entities[i]
-                self.entities[i] = self.entities[i2]
-                self.entities[i2] = temp
-#                 print(self.entities)
-                return
-            #end if
-        #end if
-            
-        if y < self.size - 1:
-            i2 = (y + 1) * self.size + (x + 0)
-            
-            if self.entities[i2].id == 0:
-#                 print('swapping tile #%d with #%d' % (i, i2))
-                temp = self.entities[i]
-                self.entities[i] = self.entities[i2]
-                self.entities[i2] = temp
-#                 print(self.entities)
-                return
-            #end if
+            super().render(renderTarget)
         #end if
         
         return
-    #end swapTiles
+    #end render
     
-    @staticmethod
-    def onEnter(self) -> None:
-        self.setupGrid()
+    def enter(self):
+        self.active = True
+        self.visible = True
+        self.solid = True
+        self.getsInput = True
+        
+        if self.onEnter != None:
+            self.onEnter(self)
+        #end if
         
         return
-    #end onEnter
+    #end enter
     
-    @staticmethod
-    def getMousePos(self, pos: list) -> None:
-        self.mousePos[0] = round(pos[0] * self.scale)
-        self.mousePos[1] = round(pos[1] * self.scale)
+    def exit(self):
+        self.active = False
+        self.visible = False
+        self.solid = False
+        self.getsInput = False
+        
+        if self.onExit != None:
+            self.onExit(self)
+        #end if
         
         return
-    #end getMousePos
-    
-    @staticmethod
-    def onClick(self, button: int) -> None:
-        for i in range(len(self.entities)):
-            if self.entities[i].rect.collidepoint(self.mousePos):
-                self.swapTiles(i)
-                break
-            #end if
-        #end for
-        
-        return
-    #end swapTiles
-#end PlayState
+    #end exit
+#end State
 
-class SlidePuzzleGame(Game):
-    def __init__(self) -> None:
-        super().__init__('Slide Puzzle', DISP_W, DISP_H, RENDER_W, RENDER_H, 0)
+class Game(Entity):
+    def __init__(self, title, dispW, dispH, resW, resH, flags):
+        pg.init()
+        super().__init__(0,0,resW,resH)
+
+        self.display = pg.display.set_mode((dispW,dispH),flags)
+        pg.display.set_caption(title)
+
+        self.frameTimer = int(1000 / 40)
+        self.frameTimeDelta = 0
+        self.lastFrameTick = 0
+
+        self.keysDown = pg.key.get_pressed()
+        self.mouseButtonsDown = pg.mouse.get_pressed()
+        self.mousePos = pg.mouse.get_pos()
+
+        self.states = []
         
-        self.menuState: MenuState = MenuState()
-        self.menuState.exit()
-        self.playState3x3: PlayState = PlayState(3)
-        self.playState3x3.exit()
-        self.playState4x4: PlayState = PlayState(4)
-        self.playState4x4.exit()
-        self.playState5x5: PlayState = PlayState(5)
-        self.playState5x5.exit()
+        self.onJoyDeviceAdded = None
+        self.onJoyDeviceRemoved = None
         
-        self.states = [
-            self.menuState
-            ,self.playState3x3
-            ,self.playState4x4
-            ,self.playState5x5
-        ]
-        
-#         self.menuState.enter()
-        self.playState3x3.enter()
-        
+        self.onStart = None
+        self.onQuit = None
+
         return
     #end __init__
-#end SlidePuzzleGame
 
-def main() -> None:
-    slidePuzzle: SlidePuzzleGame = SlidePuzzleGame()
-    slidePuzzle.run()
+    def __del__(self):
+        pg.quit()
+
+        return
+    #end __del__
+
+    def handleEvents(self):
+        for event in pg.event.get():
+            self.handleEvent(event)
+
+            for state in self.states:
+                state.handleEvent(event)
+
+                for Entity in state.entities:
+                    Entity.handleEvent(event)
+                #end for
+            #end for
+        #end for
+
+        self.keysDown = pg.key.get_pressed()
+        self.mouseButtonsDown = pg.mouse.get_pressed()
+        self.mousePos = pg.mouse.get_pos()
+
+        if self.onKeysDown != None and self.getsInput == True:
+            self.onKeysDown(self, self.keysDown)
+        #end if
+
+        if self.onMouseButtonsDown != None and self.getsInput == True:
+            self.onMouseButtonsDown(self, self.mouseButtonsDown)
+        #end if
+
+        for state in self.states:
+            if state.getsInput == True:
+                if state.onKeysDown != None:
+                    state.onKeysDown(state, self.keysDown)
+                #end if
+
+                if state.onMouseButtonsDown != None:
+                    state.onMouseButtonsDown(state, self.mouseButtonsDown)
+                #end if
+                    
+                for entity in state.entities:
+                    if entity.onKeysDown != None and entity.getsInput == True:
+                        entity.onKeysDown(entity, self.keysDown)
+                    #end if
+
+                    if entity.onMouseButtonsDown != None and entity.getsInput == True:
+                        entity.onMouseButtonsDown(entity, self.mouseButtonsDown)
+                    #end if
+                #end for
+            #end if
+        #end for
+        
+        return
+    #end handleEvents
+
+    def update(self):
+        if self.active == True:
+            for state in self.states:
+                state.update()
+            #end for
+            
+            super().update()
+        #end if
+
+        return
+    #end update
+
+    def render(self, renderTarget):
+        self.display.fill((0,0,0))
+        self.img.fill((0,0,0))
+        
+        if self.visible == True:
+            for state in self.states:
+                state.render(self.img)
+            #end for
+            
+            super().render(renderTarget)
+        #end if
+            
+        pg.display.flip()
+
+        return
+    #end render
+
+    def tick(self):
+        self.frameTimeDelta = pg.time.get_ticks() - self.lastFrameTick
+
+        while self.frameTimeDelta < self.frameTimer:
+            self.frameTimeDelta = pg.time.get_ticks() - self.lastFrameTick
+        #end while
+
+        self.lastFrameTick = pg.time.get_ticks()
+
+        if self.onTick != None:
+            self.onTick(self, self.frameTimeDelta)
+        #end if
+            
+        for state in self.states:
+            if state.onTick != None:
+                state.onTick(state, self.frameTimeDelta)
+            #end if
+                
+            for entity in state.entities:
+                if entity.onTick != None:
+                    entity.onTick(entity, self.frameTimeDelta)
+                #end if
+            #end for
+        #end for
+
+        return
+    #end tick
+
+    def run(self):
+        try:
+            if self.onStart != None:
+                self.onStart()
+            #end if
+            
+            while self.active == True:
+                self.tick()
+                self.handleEvents()
+                self.update()
+                self.render(self.display)
+            #end while
+                
+            if self.onQuit() != None:
+                self.onQuit()
+            #end if
+        except Exception as e:
+            print(e)
+        #end try
+
+        return
+    #end run
     
-    return
-#end main
-
-if __name__ == '__main__':
-    main()
-#end main
+    def pushState(self, state):
+        self.states.append(state)
+        
+        self.states[-1].enter()
+        
+        if state.onEnter != None:
+            state.onEnter(state)
+        #end if
+        
+        return
+    #end pushState
+    
+    def popState(self, index):
+        state = self.states.pop(index)
+        state.exit()
+        
+        if state.onExit != None:
+            state.onExit(state)
+        #end if
+        
+        return
+    #end popState
+#end Game
