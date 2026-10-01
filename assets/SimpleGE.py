@@ -1,179 +1,232 @@
 import pygame as pg
 
-COLLIDEMODE_RECT = 0
-COLLIDEMODE_RADIUS = 1
+#-------------------------------------------------------------------------------
+#   Global Variables
+#-------------------------------------------------------------------------------
 
 RENDERMODE_NATIVE = 0
 RENDERMODE_STRETCH = 1
 RENDERMODE_CENTER = 2
 
-class Entity:
-    def __init__(self, x, y, w, h):
-        self.active = True
-        self.visible = True
-        self.solid = True
-        self.debug = False
-        self.getsInput = True
+COLLIDEMODE_RECT = 0
+COLLIDEMODE_RADIUS = 1
 
-        self.img = pg.surface.Surface((w,h))
-        self.rect = pg.Rect(x,y,w,h)
+COLOR_DEFAULT = (0,0,0)
+COLOR_TRANSPARENT = (255,0,255)
+
+DISP_W = 800
+DISP_H = 600
+DISP_FLAGS = 0
+
+DISPLAY = None
+KEYSDOWN = None
+MOUSEDOWN = None
+
+#-------------------------------------------------------------------------------
+#   Entity
+#-------------------------------------------------------------------------------
+
+class Entity:    
+    def __init__(self, x, y, w, h, img):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+
+        self.dx = 0
+        self.dy = 0
+        self.ddx = 0
+        self.ddy = 0
+        
+        self.img = img
+
+        if self.img == None:
+            self.img = pg.surface.Surface((w,h))
+            self.img.fill(COLOR_DEFAULT)
+        #end if
+
+        self.img = self.img.convert()
+        self.img.set_colorkey(COLOR_TRANSPARENT)
+        
         self.renderMode = RENDERMODE_NATIVE
 
-        self.collideRect = pg.Rect(x,y,w,h)
-        self.collideRadius = min(w,h)
+        self.hitRect = pg.Rect(x,y,w,h)
+        self.hitOffsX = 0
+        self.hitOffsY = 0
+        self.hitR = w
+
+        if self.hitR > h:
+            self.hitR = h
+        #end if
+        
         self.collideMode = COLLIDEMODE_RECT
-        
-        self.x = float(x)
-        self.y = float(y)
-        self.dx = 0.0
-        self.dy = 0.0
-        self.ddx = 0.0
-        self.ddy = 0.0
-        
+
+        self.clipRect = pg.Rect(0,0,w,h)
+
+        self.lastTick = 0
+
+        self.getsTick = True
+        self.getsInput = True
+        self.getsKeyboardInput = True
+        self.getsMouseInput = True
+        self.getsJoystickInput = True
+        self.getsUpdate = True
+        self.getsRender = True
+        self.getsCollision = True
+
         self.onTick = None
+        self.onUpdate = None
+        self.onRender = None
+        self.onCollide = None
 
-        self.onKeyPressed = None 
+        self.onKeyPressed = None
         self.onKeyReleased = None
-        self.onKeysDown = None
 
-        self.onMouseButtonPressed = None
-        self.onMouseButtonReleased = None
-        self.onMouseButtonsDown = None
-
+        self.onMousePressed = None
+        self.onMouseReleased = None
         self.onMouseMotion = None
         self.onMouseWheel = None
-
-        self.onJoyButtonPressed = None
-        self.onJoyButtonReleased = None
-        self.onJoyButtonsDown = None
-
-        self.onJoyAxisMotion = None
-#         self.onJoyBallMotion = None
-        self.onJoyHatMotion = None
 
         return
     #end __init__
 
-    def handleEvent(self, event):
-        if event.type == pg.QUIT:
-            self.active = False
-        elif self.getsInput == True:
-            if event.type == pg.KEYDOWN:
-                if self.onKeyPressed != None:
-                    self.onKeyPressed(self, event.key)
-                #end if
-            elif event.type == pg.KEYUP:
-                if self.onKeyReleased != None:
-                    self.onKeyReleased(self, event.key)
-                #end if
-            elif event.type == pg.MOUSEBUTTONDOWN:
-                if self.onMouseButtonPressed != None:
-                    self.onMouseButtonPressed(self, event.button)
-                #end if
-            elif event.type == pg.MOUSEBUTTONUP:
-                if self.onMouseButtonReleased != None:
-                    self.onMouseButtonReleased(self, event.button)
-                #end if
-            elif event.type == pg.MOUSEMOTION:
-                if self.onMouseMotion != None:
-                    self.onMouseMotion(self, event.pos)
-                #end if
-            elif event.type == pg.MOUSEWHEEL:
-                if self.onMouseWheel != None:
-                    self.onMouseWheel(self, (event.x, event.y))
-                #end if
-            elif event.type == pg.JOYBUTTONDOWN:
-                if self.onJoyButtonPressed != None:
-                    self.onJoyButtonPressed(self, event.instance_id, event.button)
-                #end if
-            elif event.type == pg.JOYBUTTONUP:
-                if self.onJoyButtonReleased != None:
-                    self.onJoyButtonReleased(self, event.instance_id, event.button)
-                #end if
-            elif event.type == pg.JOYAXISMOTION:
-                if self.onJoyAxisMotion != None:
-                    self.onJoyAxisMotion(self, event.instance_id, event.axis, event.value)
-                #end if
-            elif event.type == pg.JOYHATMOTION:
-                if self.onJoyHatMotion != None:
-                    self.onJoyHatMotion(self, event.instance_id, event.hat, event.value)
+    def tick(self, dt):
+        if self.getsTick == True:
+            self.lastTick += dt
+
+            if self.onTick != None:
+                self.onTick(self, dt)
+            #end if
+        #end if
+
+        return
+    #end tick
+
+    def handleInput(self, event):
+        if self.getsInput == True:
+            if self.getsKeyboardInput == True:
+                if event.type == pg.KEYDOWN:
+                    if self.onKeyPressed != None:
+                        self.onKeyPressed(self, event.key)
+                    #end if
+                elif event.type == pg.KEYUP:
+                    if self.onKeyReleased != None:
+                        self.onKeyReleased(self, event.key)
+                    #end if
+            #end if
+            
+            if self.getsMouseInput == True:
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    if self.onMousePressed != None:
+                        self.onMousePressed(self, event.button)
+                    #end if
+                elif event.type == pg.MOUSEBUTTONUP:
+                    if self.onMouseReleased != None:
+                        self.onMouseReleased(self, event.button)
+                    #end if
+                elif event.type == pg.MOUSEMOTION:
+                    if self.onMouseMotion != None:
+                        self.onMouseMotion(self, event.pos)
+                    #end if
+                elif event.type == pg.MOUSEWHEEL:
+                    if self.onMouseWheel != None:
+                        self.onMouseWheel(self, event.x, event.y)
+                    #end if
                 #end if
             #end if
         #end if
 
         return
-    #end handleEvent
+    #end handleInput
 
     def update(self):
-        if self.active == True:
+        if self.getsUpdate == True:
             self.dx += self.ddx
             self.dy += self.ddy
             self.x += self.dx
             self.y += self.dy
-            self.rect.left = int(self.x)
-            self.rect.top = int(self.y)
-            self.collideRect.center = self.rect.center
+
+            self.hitRect.topleft = (
+                self.x + self.hitOffsX
+                ,self.y + self.hitOffsY
+            )
+            
+            if self.onUpdate != None:
+                self.onUpdate(self)
+            #end if
         #end if
 
         return
     #end update
 
-    def render(self, renderTarget):
-        if self.visible == True:            
+    def render(self, renderTarget):        
+        if self.getsRender == True:
             if self.renderMode == RENDERMODE_NATIVE:
-                renderTarget.blit(self.img,self.rect)
+                renderTarget.blit(
+                    self.img
+                    ,(int(self.x), int(self.y))
+                    ,self.clipRect
+                )
             elif self.renderMode == RENDERMODE_STRETCH:
                 pg.transform.scale(
                     self.img
                     ,renderTarget.get_size()
                     ,renderTarget
                 )
-            elif self.renderMode == RENDERMODE_CENTER:
-                renderTarget.blit(
-                    self.img
-                    ,self.rect.move(
-                        int((renderTarget.get_width()-self.img.get_width())/2)
-                        ,int((renderTarget.get_height()-self.img.get_height())/2)
-                    )
-                )
+            #end if
+                
+            if self.onRender != None:
+                self.onRender(self, renderTarget)
             #end if
         #end if
 
         return
     #end render
-    
-    def debugRect(self, renderTarget):
-        pg.draw.rect(renderTarget, (255,0,0), self.rect, 1)
-        pg.draw.rect(renderTarget, (0,0,255), self.collideRect, 1)
-        
-        return
-    #end debugRect
 
     def collide(self, other):
-        if self.solid == True:
-            if isinstance(other,Entity):
-                if self.collideMode == COLLIDEMODE_RECT:
-                    return self.collideRect.colliderect(other.collideRect)
-                elif self.collideMode == COLLIDEMODE_RADIUS:
-                    dx = other.collideRect.center[0] - self.collideRect.center[0]
-                    dy = other.collideRect.center[1] - self.collideRect.center[1]
-                    d = (dx * dx) + (dy * dy)
-                    r = other.collideRadius + self.collideRadius
-                    r = r * r
-                    return d < r
+        if self.getsCollision == True:
+            if self.collideMode == COLLIDEMODE_RECT:
+                if self.hitRect.colliderect(other.hitRect) == True:
+                    if self.onCollide != None:
+                        self.onCollide(self, other)
+                    #end if
+                    
+                    return True
+                else:
+                    return False
                 #end if
-            else:
-                return False
+            elif self.collideMode == COLLIDEMODE_RADIUS:
+                xDif = other.hitRect.centerx - self.hitRect.centerx
+                yDif = other.hitRect.centery - self.hitRect.centery
+                sqrDist = (xDif ** 2) + (yDif ** 2)
+                sqrRadiiSum = (other.hitR + self.hitR) ** 2
+
+                if sqrDist <= sqrRadiiSum:
+                    if self.onCollide != None:
+                        self.onCollide(self,other)
+                    #end if
+                    
+                    return True
+                else:
+                    return False
+                #end if
             #end if
-        else:
-            return False
         #end if
+
+        return False
     #end collide
 #end Entity
 
-class State(Entity):
-    def __init__(self,x,y,w,h):
-        super().__init__(x,y,w,h)
+#-------------------------------------------------------------------------------
+#   State
+#-------------------------------------------------------------------------------
+
+class State(Entity):    
+    def __init__(self, x, y, w, h):
+        super().__init__(x, y, w, h, None)
+
+        self.renderMode = RENDERMODE_STRETCH
+
         self.entities = []
         self.exitCode = 0
 
@@ -182,243 +235,274 @@ class State(Entity):
 
         return
     #end __init__
-    
-    def update(self):        
-        if self.active == True:
-            for entity in self.entities:
-                entity.update()
-            #end for
-            
-            super().update()
-        #end if
+
+    def tick(self, dt):
+        for entity in self.entities:
+            entity.tick(dt)
+        #end for
+
+        super().tick(dt)
+
+        return
+    #end tick
+
+    def handleInput(self, event):
+        for entity in self.entities:
+            entity.handleInput(event)
+        #end for
+
+        super().handleInput(event)
         
+        return
+    #end handleInput
+
+    def update(self):
+        for entity in self.entities:
+            entity.update()
+        #end for
+
+        super().update()
+        
+        self.checkCollisions()
+
         return
     #end update
     
-    def render(self, renderTarget):
-        self.img.fill((0,0,0))
-        
-        if self.visible == True:
-            for entity in self.entities:
-                entity.render(self.img)
+    def checkCollisions(self):
+        if self.getsCollision == True:
+            for i in range(len(self.entities) - 1):
+                for j in range(i + 1, len(self.entities)):
+                    self.entities[i].collide(self.entities[j])
+                    self.entities[j].collide(self.entities[i])
+                #end for
             #end for
-                
-            super().render(renderTarget)
         #end if
         
         return
-    #end render
-    
-    def enter(self):
-        self.active = True
-        self.visible = True
-        self.solid = True
-        self.getsInput = True
+    #end checkCollisions
+
+    def render(self, renderTarget):
+        self.img.fill(COLOR_DEFAULT)
         
+        for entity in self.entities:
+            entity.render(self.img)
+        #end for
+            
+        super().render(renderTarget)
+
+        return
+    #end render
+
+    def enter(self):
+        self.getsTick = True
+        self.getsInput = True
+        self.getsKeyboardInput = True
+        self.getsMouseInput = True
+        self.getsJoystickInput = True
+        self.getsUpdate = True
+        self.getsRender = True
+        self.getsCollision = True
+        
+        self.exitCode = 0
+
         if self.onEnter != None:
             self.onEnter(self)
         #end if
-        
+
         return
     #end enter
-    
+
     def exit(self):
-        self.active = False
-        self.visible = False
-        self.solid = False
+        self.getsTick = False
         self.getsInput = False
+        self.getsKeyboardInput = False
+        self.getsMouseInput = False
+        self.getsJoystickInput = False
+        self.getsUpdate = False
+        self.getsRender = False
+        self.getsCollision = False
         
+        self.exitCode = 0
+
         if self.onExit != None:
             self.onExit(self)
         #end if
-        
+
         return
     #end exit
 #end State
 
+#-------------------------------------------------------------------------------
+#   App
+#-------------------------------------------------------------------------------
+
 class Game(Entity):
-    def __init__(self, title, dispW, dispH, resW, resH, flags):
-        pg.init()
-        super().__init__(0,0,resW,resH)
-
-        self.display = pg.display.set_mode((dispW,dispH),flags)
-        pg.display.set_caption(title)
-
-        self.frameTimer = int(1000 / 40)
-        self.frameTimeDelta = 0
-        self.lastFrameTick = 0
-
-        self.keysDown = pg.key.get_pressed()
-        self.mouseButtonsDown = pg.mouse.get_pressed()
-        self.mousePos = pg.mouse.get_pos()
-
+    def __init__(self, x, y, w, h):
+        super().__init__(x, y, w, h, None)
+        
+        self.renderMode = RENDERMODE_STRETCH
         self.states = []
-        
-        self.onJoyDeviceAdded = None
-        self.onJoyDeviceRemoved = None
-        
+
+        self.frameTimer = 1000 / 40
+        self.frameDt = 0
+
+        self.running = False
+
         self.onStart = None
         self.onQuit = None
+        
+        self.onKeysDown = None
+        self.onMouseDown = None
 
         return
     #end __init__
 
-    def __del__(self):
-        pg.quit()
+    def tick(self, dt):
+        self.frameDt = pg.time.get_ticks() - self.lastTick
+        
+        while self.frameDt < self.frameTimer:
+            self.frameDt += pg.time.get_ticks() - self.lastTick
+        #end while
+            
+        for state in self.states:
+            state.tick(self.frameDt)
+        #end for
+            
+        super().tick(self.frameDt)
 
         return
-    #end __del__
+    #end tick
 
-    def handleEvents(self):
+    def handleInput(self, event):
         for event in pg.event.get():
-            self.handleEvent(event)
+            if event.type == pg.QUIT:
+                self.running = False
 
-            for state in self.states:
-                state.handleEvent(event)
-
-                for Entity in state.entities:
-                    Entity.handleEvent(event)
+                return
+            else:
+                for state in self.states:
+                    state.handleInput(event)
                 #end for
-            #end for
-        #end for
 
-        self.keysDown = pg.key.get_pressed()
-        self.mouseButtonsDown = pg.mouse.get_pressed()
-        self.mousePos = pg.mouse.get_pos()
-
-        if self.onKeysDown != None and self.getsInput == True:
-            self.onKeysDown(self, self.keysDown)
-        #end if
-
-        if self.onMouseButtonsDown != None and self.getsInput == True:
-            self.onMouseButtonsDown(self, self.mouseButtonsDown)
-        #end if
-
-        for state in self.states:
-            if state.getsInput == True:
-                if state.onKeysDown != None:
-                    state.onKeysDown(state, self.keysDown)
-                #end if
-
-                if state.onMouseButtonsDown != None:
-                    state.onMouseButtonsDown(state, self.mouseButtonsDown)
-                #end if
-                    
-                for entity in state.entities:
-                    if entity.onKeysDown != None and entity.getsInput == True:
-                        entity.onKeysDown(entity, self.keysDown)
-                    #end if
-
-                    if entity.onMouseButtonsDown != None and entity.getsInput == True:
-                        entity.onMouseButtonsDown(entity, self.mouseButtonsDown)
-                    #end if
-                #end for
+                super().handleInput(event)
             #end if
         #end for
+                
+        getInputStates()
+        
+        if self.getsInput == True:
+            if self.getsKeyboardInput == True:
+                if self.onKeysDown != None:
+                    self.onKeysDown(self, KEYSDOWN)
+                #end if
+            #end if
+                    
+            if self.getsMouseInput == True:
+                if self.onMouseDown != None:
+                    self.onMouseDown(self, MOUSEDOWN)
+                #end if
+            #end if
+        #end if
         
         return
-    #end handleEvents
+    #end handleInput
 
     def update(self):
-        if self.active == True:
-            for state in self.states:
-                state.update()
-            #end for
-            
-            super().update()
-        #end if
+        for state in self.states:
+            state.update()
+        #end for
+
+        super().update()
 
         return
     #end update
 
     def render(self, renderTarget):
-        self.display.fill((0,0,0))
-        self.img.fill((0,0,0))
+        self.img.fill(COLOR_DEFAULT)
         
-        if self.visible == True:
-            for state in self.states:
-                state.render(self.img)
-            #end for
-            
-            super().render(renderTarget)
-        #end if
-            
+        for state in self.states:
+            state.render(self.img)
+        #end for
+
+        super().render(renderTarget)
         pg.display.flip()
 
         return
     #end render
 
-    def tick(self):
-        self.frameTimeDelta = pg.time.get_ticks() - self.lastFrameTick
+    def run(self):
+        self.running = True
 
-        while self.frameTimeDelta < self.frameTimer:
-            self.frameTimeDelta = pg.time.get_ticks() - self.lastFrameTick
+        if self.onStart != None:
+            self.onStart(self)
+        #end if
+
+        while self.running == True:
+            self.tick(0)
+            self.handleInput(None)
+            self.update()
+            self.render(DISPLAY)
         #end while
 
-        self.lastFrameTick = pg.time.get_ticks()
-
-        if self.onTick != None:
-            self.onTick(self, self.frameTimeDelta)
+        if self.onQuit != None:
+            self.onQuit(self)
         #end if
-            
-        for state in self.states:
-            if state.onTick != None:
-                state.onTick(state, self.frameTimeDelta)
-            #end if
-                
-            for entity in state.entities:
-                if entity.onTick != None:
-                    entity.onTick(entity, self.frameTimeDelta)
-                #end if
-            #end for
-        #end for
 
-        return
-    #end tick
-
-    def run(self):
-        try:
-            if self.onStart != None:
-                self.onStart()
-            #end if
-            
-            while self.active == True:
-                self.tick()
-                self.handleEvents()
-                self.update()
-                self.render(self.display)
-            #end while
-                
-            if self.onQuit() != None:
-                self.onQuit()
-            #end if
-        except Exception as e:
-            print(e)
-        #end try
+        pg.quit()
 
         return
     #end run
+#end App
+
+#-------------------------------------------------------------------------------
+#   Functions
+#-------------------------------------------------------------------------------
+
+def initSimpleGE(dispW, dispH, dispFlags, title):
+    global DISP_W, DISP_H, DISPLAY, KEYSDOWN, MOUSEDOWN
+
+    pg.init()
     
-    def pushState(self, state):
-        self.states.append(state)
-        
-        self.states[-1].enter()
-        
-        if state.onEnter != None:
-            state.onEnter(state)
-        #end if
-        
-        return
-    #end pushState
+    DISP_W = dispW
+    DISP_H = dispH
+    DISP_FLAGS = dispFlags
     
-    def popState(self, index):
-        state = self.states.pop(index)
-        state.exit()
-        
-        if state.onExit != None:
-            state.onExit(state)
-        #end if
-        
-        return
-    #end popState
-#end Game
+    DISPLAY = pg.display.set_mode((DISP_W, DISP_H), DISP_FLAGS)
+    pg.display.set_caption(title)
+    
+    KEYSDOWN = pg.key.get_pressed()
+    MOUSEDOWN = pg.mouse.get_pressed()
+
+    return
+#end return
+
+def getInputStates():
+    global KEYSDOWN, MOUSEDOWN
+    
+    KEYSDOWN = pg.key.get_pressed()
+    MOUSEDOWN = pg.mouse.get_pressed()
+    
+    return
+#end getInputStates
+
+def main():
+    initSimpleGE(800,600,0,"Test")
+
+    entity = Entity(0,0,200,200,None)
+    entity.img.fill((255,0,0))
+    entity.clipRect.w = 100
+    
+    state = State(0,0,400,400,[entity])
+    state.renderMode = 1
+    app = Game(0,0,800,800,[state])
+    app.renderMode = 1
+    
+    app.run()
+
+    return
+#end main
+
+if __name__ == '__main__':
+    main()
+#end if
+
