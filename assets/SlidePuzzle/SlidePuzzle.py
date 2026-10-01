@@ -231,6 +231,8 @@ class TileBoard(Entity):
     #end reset
     
     def scramble(self):
+        self.muted = True
+        
         for i in range(1000):
             TileBoard.moveTile(self, choice((pg.K_UP,pg.K_DOWN,pg.K_LEFT,pg.K_RIGHT)))
         #end for
