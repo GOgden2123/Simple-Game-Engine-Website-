@@ -21,6 +21,7 @@ DISP_FLAGS = 0
 DISPLAY = None
 KEYSDOWN = None
 MOUSEDOWN = None
+JOYDOWN = None
 
 #-------------------------------------------------------------------------------
 #   Entity
@@ -28,15 +29,21 @@ MOUSEDOWN = None
 
 class Entity:    
     def __init__(self, x, y, w, h, img):
+        #Size and Position
+        
         self.x = x
         self.y = y
         self.w = w
         self.h = h
 
+        #Movement
+        
         self.dx = 0
         self.dy = 0
         self.ddx = 0
         self.ddy = 0
+        
+        #Image data
         
         self.img = img
 
@@ -49,7 +56,10 @@ class Entity:
         self.img.set_colorkey(COLOR_TRANSPARENT)
         
         self.renderMode = RENDERMODE_NATIVE
+        self.clipRect = pg.Rect(0,0,w,h)
 
+        #Collision Boundaries
+        
         self.hitRect = pg.Rect(x,y,w,h)
         self.hitOffsX = 0
         self.hitOffsY = 0
@@ -61,10 +71,8 @@ class Entity:
         
         self.collideMode = COLLIDEMODE_RECT
 
-        self.clipRect = pg.Rect(0,0,w,h)
-
-        self.lastTick = 0
-
+        #Status
+        
         self.getsTick = True
         self.getsInput = True
         self.getsKeyboardInput = True
@@ -73,6 +81,10 @@ class Entity:
         self.getsUpdate = True
         self.getsRender = True
         self.getsCollision = True
+        self.debug = False
+        self.lastTick = 0
+        
+        #Callback Functions
 
         self.onTick = None
         self.onUpdate = None
@@ -86,6 +98,11 @@ class Entity:
         self.onMouseReleased = None
         self.onMouseMotion = None
         self.onMouseWheel = None
+        
+        self.onJoyButtonPressed = None
+        self.onJoyButtonReleased = None
+        self.onJoyAxisMotion = None
+        self.onJoyHatMotion = None
 
         return
     #end __init__
@@ -134,6 +151,26 @@ class Entity:
                     #end if
                 #end if
             #end if
+                        
+            if self.getsJoystickInput == True:
+                if event.type == pg.JOYBUTTONDOWN:
+                    if self.onJoyButtonPressed != None:
+                        self.onJoyButtonPressed(self, event.instance_id, event.button)
+                    #end if
+                elif event.type == pg.JOYBUTTONUP:
+                    if self.onJoyButtonReleased != None:
+                        self.onJoyButtonReleased(self, event.instance_id, event.button)
+                    #end if
+                elif event.type == pg.JOYAXISMOTION:
+                    if self.onJoyAxisMotion != None:
+                        self.onJoyAxisMotion(self, event.instance_id, event.axis, event.value)
+                    #end if
+                elif event.type == pg.JOYHATMOTION:
+                    if self.onJoyHatMotion != None:
+                        self.onJoyHatMotion(self, event.instance_id, event.hat, event.value)
+                    #end if
+                #endif
+            #end if
         #end if
 
         return
@@ -179,9 +216,20 @@ class Entity:
                 self.onRender(self, renderTarget)
             #end if
         #end if
+                
+        if self.debug == True:
+            self.debug(renderTarget)
+        #end if
 
         return
     #end render
+    
+    def debugRect(self, renderTarget):
+        pg.draw.rect(renderTarget, (255,0,0), (self.x,self.y,self.w,self.h), 1)
+        pg.draw.rect(renderTarget, (0,0,255), (self.hitX,self.hitY,self.hitW,self.hitH), 1)
+        
+        return
+    #end debugRect
 
     def collide(self, other):
         if self.getsCollision == True:
@@ -353,6 +401,11 @@ class Game(Entity):
         
         self.onKeysDown = None
         self.onMouseDown = None
+        
+        self.onJoyDeviceAdded = None
+        self.onJoyDeviceRemoved = None
+        self.onJoyButtonsDown = None
+        
 
         return
     #end __init__
@@ -452,6 +505,21 @@ class Game(Entity):
 
         return
     #end run
+    
+    def pushState(self, state):
+        self.states.append(state)
+        
+        state.enter()
+        
+        return
+    #end pushState
+    
+    def popState(self, index):
+        self.states[index].exit()
+        self.states.pop(index)
+        
+        return
+    #end popState
 #end App
 
 #-------------------------------------------------------------------------------

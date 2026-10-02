@@ -1,203 +1,347 @@
-from SimpleGE import *
-from random import choice
+import pygame as pg
 
-REND_SCALE = 3
-REND_W = 240
-REND_H = 160
+#-------------------------------------------------------------------------------
+#   Global Variables
+#-------------------------------------------------------------------------------
 
-# DISP_W = 240 * REND_SCALE
-# DISP_H = 160 * REND_SCALE
+RENDERMODE_NATIVE = 0
+RENDERMODE_STRETCH = 1
+RENDERMODE_CENTER = 2
 
-STATE_INTRO = 1
-STATE_MENU = 2
-STATE_PLAY_3 = 3
-STATE_PLAY_4 = 4
-STATE_PLAY_5 = 5
+COLLIDEMODE_RECT = 0
+COLLIDEMODE_RADIUS = 1
 
-class IntroState(State):
-    def __init__(self):
-        super().__init__(0,0,REND_W,REND_H)
+COLOR_DEFAULT = (0,0,0)
+COLOR_TRANSPARENT = (255,0,255)
+
+DISP_W = 800
+DISP_H = 600
+DISP_FLAGS = 0
+
+DISPLAY = None
+KEYSDOWN = None
+MOUSEDOWN = None
+JOYDOWN = None
+
+#-------------------------------------------------------------------------------
+#   Entity
+#-------------------------------------------------------------------------------
+
+class Entity:    
+    def __init__(self, x, y, w, h, img):
+        #Size and Position
         
-        self.renderMode = RENDERMODE_STRETCH
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+
+        #Movement
         
-        self.entities = [Entity(0,0,REND_W,REND_H,pg.image.load('gfx/intro.bmp'))]
+        self.dx = 0
+        self.dy = 0
+        self.ddx = 0
+        self.ddy = 0
         
-        self.introDuration = 5000
+        #Image data
         
-        self.onTick = IntroState.tickIntro
-        self.onEnter = IntroState.reset
-        self.onExit = IntroState.reset
+        self.img = img
+
+        if self.img == None:
+            self.img = pg.surface.Surface((w,h))
+            self.img.fill(COLOR_DEFAULT)
+        #end if
+
+        self.img = self.img.convert()
+        self.img.set_colorkey(COLOR_TRANSPARENT)
         
-        return
-    #end __init__
-    
-    @staticmethod
-    def reset(target):
-        target.introDuration = 5000
+        self.renderMode = RENDERMODE_NATIVE
+        self.clipRect = pg.Rect(0,0,w,h)
+
+        #Collision Boundaries
         
-        return
-    #end enter
-    
-    @staticmethod
-    def tickIntro(target, dt):
-        target.introDuration -= dt
-        
-        if target.introDuration <= 0:
-            target.exitCode = STATE_MENU
+        self.hitRect = pg.Rect(x,y,w,h)
+        self.hitOffsX = 0
+        self.hitOffsY = 0
+        self.hitR = w
+
+        if self.hitR > h:
+            self.hitR = h
         #end if
         
-        return
-    #end tickIntro
-#end IntroState
-    
-class MenuState(State):
-    def __init__(self):
-        super().__init__(0,0,REND_W,REND_H)
+        self.collideMode = COLLIDEMODE_RECT
+
+        #Status
         
-        self.renderMode = RENDERMODE_STRETCH
+        self.getsTick = True
+        self.getsInput = True
+        self.getsKeyboardInput = True
+        self.getsMouseInput = True
+        self.getsJoystickInput = True
+        self.getsUpdate = True
+        self.getsRender = True
+        self.getsCollision = True
+        self.debug = False
+        self.lastTick = 0
         
-        self.entities = [Entity(0,0,REND_W,REND_H,pg.image.load('gfx/menu.bmp'))]
+        #Callback Functions
+
+        self.onTick = None
+        self.onUpdate = None
+        self.onRender = None
+        self.onCollide = None
+
+        self.onKeyPressed = None
+        self.onKeyReleased = None
+
+        self.onMousePressed = None
+        self.onMouseReleased = None
+        self.onMouseMotion = None
+        self.onMouseWheel = None
         
-        self.selectorPoints = [
-            (11,105)
-            ,(86,105)
-            ,(162,105)
-        ]
-        self.selectorInd = 0
-        
-        self.entities.append(Entity(0,0,64,32,pg.image.load('gfx/selector.bmp')))
-        self.entities[-1].x = self.selectorPoints[self.selectorInd][0]
-        self.entities[-1].y = self.selectorPoints[self.selectorInd][1]
-        
-        self.selectorSFX = pg.mixer.Sound('sfx/slide.wav')
-        self.selectSFX = pg.mixer.Sound('sfx/select.wav')
-        
-        self.onKeyPressed = MenuState.moveSelector
-        
+        self.onJoyButtonPressed = None
+        self.onJoyButtonReleased = None
+        self.onJoyAxisMotion = None
+        self.onJoyHatMotion = None
+
         return
     #end __init__
-    
-    @staticmethod
-    def moveSelector(target, key):        
-        if key == pg.K_RIGHT:
-            target.selectorSFX.play()
-            
-            target.selectorInd += 1
-            
-            if target.selectorInd >= len(target.selectorPoints):
-                target.selectorInd = 0
-            #end if
-                
-            target.entities[-1].x = target.selectorPoints[target.selectorInd][0]
-            target.entities[-1].y = target.selectorPoints[target.selectorInd][1]
-        elif key == pg.K_LEFT:
-            target.selectorSFX.play()
-            
-            target.selectorInd -= 1
-            
-            if target.selectorInd < 0:
-                target.selectorInd = len(target.selectorPoints) - 1
-            #end if
-                
-            target.entities[-1].x = target.selectorPoints[target.selectorInd][0]
-            target.entities[-1].y = target.selectorPoints[target.selectorInd][1]
-        elif key == pg.K_RETURN:            
-            target.selectSFX.play()
-            
-            if target.selectorInd == 0:
-                target.exitCode = STATE_PLAY_3
-            elif target.selectorInd == 1:
-                target.exitCode = STATE_PLAY_4
-            elif target.selectorInd == 2:
-                target.exitCode = STATE_PLAY_5
+
+    def tick(self, dt):
+        if self.getsTick == True:
+            self.lastTick += dt
+
+            if self.onTick != None:
+                self.onTick(self, dt)
             #end if
         #end if
-        
+
         return
-    #end moveSelector
-#end MenuState
-    
-class Tile(Entity):
-    def __init__(self, i):
-        super().__init__(0,0,32,32,pg.image.load('gfx/tiles.bmp'))
-        self.id = i
-        self.clipRect.x = (i % 5) * 32
-        self.clipRect.y = int(i / 5) * 32
-        
+    #end tick
+
+    def handleInput(self, event):
+        if self.getsInput == True:
+            if self.getsKeyboardInput == True:
+                if event.type == pg.KEYDOWN:
+                    if self.onKeyPressed != None:
+                        self.onKeyPressed(self, event.key)
+                    #end if
+                elif event.type == pg.KEYUP:
+                    if self.onKeyReleased != None:
+                        self.onKeyReleased(self, event.key)
+                    #end if
+            #end if
+            
+            if self.getsMouseInput == True:
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    if self.onMousePressed != None:
+                        self.onMousePressed(self, event.button)
+                    #end if
+                elif event.type == pg.MOUSEBUTTONUP:
+                    if self.onMouseReleased != None:
+                        self.onMouseReleased(self, event.button)
+                    #end if
+                elif event.type == pg.MOUSEMOTION:
+                    if self.onMouseMotion != None:
+                        self.onMouseMotion(self, event.pos)
+                    #end if
+                elif event.type == pg.MOUSEWHEEL:
+                    if self.onMouseWheel != None:
+                        self.onMouseWheel(self, event.x, event.y)
+                    #end if
+                #end if
+            #end if
+                        
+            if self.getsJoystickInput == True:
+                if event.type == pg.JOYBUTTONDOWN:
+                    if self.onJoyButtonPressed != None:
+                        self.onJoyButtonPressed(self, event.instance_id, event.button)
+                    #end if
+                elif event.type == pg.JOYBUTTONUP:
+                    if self.onJoyButtonReleased != None:
+                        self.onJoyButtonReleased(self, event.instance_id, event.button)
+                    #end if
+                elif event.type == pg.JOYAXISMOTION:
+                    if self.onJoyAxisMotion != None:
+                        self.onJoyAxisMotion(self, event.instance_id, event.axis, event.value)
+                    #end if
+                elif event.type == pg.JOYHATMOTION:
+                    if self.onJoyHatMotion != None:
+                        self.onJoyHatMotion(self, event.instance_id, event.hat, event.value)
+                    #end if
+                #endif
+            #end if
+        #end if
+
         return
-    #end __init__
-#end Tile
-    
-class TileBoard(Entity):
-    def __init__(self, size):
-        super().__init__(0,0,size * 32, size * 32, None)
-        self.size = size
-        self.x = int((REND_W - self.w) / 2)
-        self.y = int((REND_H - self.h) / 2)
-        self.img.fill((255,0,0))
-        self.slideSFX = pg.mixer.Sound('sfx/slide.wav')
-        self.solved = False
-        self.muted = True
-        
-        self.tilePositions = [(x * 32, y * 32) for y in range(self.size) for x in range(self.size)]
-        
-        self.tiles = [
-            Tile(i)
-            for i in range(self.size ** 2)
-        ]
-        
-        for i in range(self.size ** 2):
-            self.tiles[i].x = self.tilePositions[i][0]
-            self.tiles[i].y = self.tilePositions[i][1]
-        #end for
-        
-        self.hide()
-        
-        self.onKeyPressed = TileBoard.moveTile
-        
-        return
-    #end __init__
-    
+    #end handleInput
+
     def update(self):
-        for i in range(self.size ** 2):
-            self.tiles[i].x = self.tilePositions[i][0]
-            self.tiles[i].y = self.tilePositions[i][1]
-        #end for
+        if self.getsUpdate == True:
+            self.dx += self.ddx
+            self.dy += self.ddy
+            self.x += self.dx
+            self.y += self.dy
+
+            self.hitRect.topleft = (
+                self.x + self.hitOffsX
+                ,self.y + self.hitOffsY
+            )
             
-        self.checkIfSolved()
-        
+            if self.onUpdate != None:
+                self.onUpdate(self)
+            #end if
+        #end if
+
         return
     #end update
-    
-    def render(self, renderTarget):
-        self.img.fill((0,0,0))
-        
-        for i in range(self.size ** 2):
-            self.tiles[i].render(self.img)
+
+    def render(self, renderTarget):        
+        if self.getsRender == True:
+            if self.renderMode == RENDERMODE_NATIVE:
+                renderTarget.blit(
+                    self.img
+                    ,(int(self.x), int(self.y))
+                    ,self.clipRect
+                )
+            elif self.renderMode == RENDERMODE_STRETCH:
+                pg.transform.scale(
+                    self.img
+                    ,renderTarget.get_size()
+                    ,renderTarget
+                )
+            #end if
+                
+            if self.onRender != None:
+                self.onRender(self, renderTarget)
+            #end if
         #end if
-        
-        super().render(renderTarget)
-        
+                
+        if self.debug == True:
+            self.debug(renderTarget)
+        #end if
+
         return
     #end render
     
-    def hide(self):
-        self.getsTick = False
-        self.getsInput = False
-        self.getsKeyboardInput = False
-        self.getsMouseInput = False
-        self.getsJoystickInput = False
-        self.getsUpdate = False
-        self.getsRender = False
-        self.getsCollision = False
-        
-        self.solved = False
-        self.muted = True
+    def debugRect(self, renderTarget):
+        pg.draw.rect(renderTarget, (255,0,0), (self.x,self.y,self.w,self.h), 1)
+        pg.draw.rect(renderTarget, (0,0,255), (self.hitX,self.hitY,self.hitW,self.hitH), 1)
         
         return
-    #end hide
+    #end debugRect
+
+    def collide(self, other):
+        if self.getsCollision == True:
+            if self.collideMode == COLLIDEMODE_RECT:
+                if self.hitRect.colliderect(other.hitRect) == True:
+                    if self.onCollide != None:
+                        self.onCollide(self, other)
+                    #end if
+                    
+                    return True
+                else:
+                    return False
+                #end if
+            elif self.collideMode == COLLIDEMODE_RADIUS:
+                xDif = other.hitRect.centerx - self.hitRect.centerx
+                yDif = other.hitRect.centery - self.hitRect.centery
+                sqrDist = (xDif ** 2) + (yDif ** 2)
+                sqrRadiiSum = (other.hitR + self.hitR) ** 2
+
+                if sqrDist <= sqrRadiiSum:
+                    if self.onCollide != None:
+                        self.onCollide(self,other)
+                    #end if
+                    
+                    return True
+                else:
+                    return False
+                #end if
+            #end if
+        #end if
+
+        return False
+    #end collide
+#end Entity
+
+#-------------------------------------------------------------------------------
+#   State
+#-------------------------------------------------------------------------------
+
+class State(Entity):    
+    def __init__(self, x, y, w, h):
+        super().__init__(x, y, w, h, None)
+
+        self.renderMode = RENDERMODE_STRETCH
+
+        self.entities = []
+        self.exitCode = 0
+
+        self.onEnter = None
+        self.onExit = None
+
+        return
+    #end __init__
+
+    def tick(self, dt):
+        for entity in self.entities:
+            entity.tick(dt)
+        #end for
+
+        super().tick(dt)
+
+        return
+    #end tick
+
+    def handleInput(self, event):
+        for entity in self.entities:
+            entity.handleInput(event)
+        #end for
+
+        super().handleInput(event)
+        
+        return
+    #end handleInput
+
+    def update(self):
+        for entity in self.entities:
+            entity.update()
+        #end for
+
+        super().update()
+        
+        self.checkCollisions()
+
+        return
+    #end update
     
-    def show(self):
+    def checkCollisions(self):
+        if self.getsCollision == True:
+            for i in range(len(self.entities) - 1):
+                for j in range(i + 1, len(self.entities)):
+                    self.entities[i].collide(self.entities[j])
+                    self.entities[j].collide(self.entities[i])
+                #end for
+            #end for
+        #end if
+        
+        return
+    #end checkCollisions
+
+    def render(self, renderTarget):
+        self.img.fill(COLOR_DEFAULT)
+        
+        for entity in self.entities:
+            entity.render(self.img)
+        #end for
+            
+        super().render(renderTarget)
+
+        return
+    #end render
+
+    def enter(self):
         self.getsTick = True
         self.getsInput = True
         self.getsKeyboardInput = True
@@ -207,242 +351,222 @@ class TileBoard(Entity):
         self.getsRender = True
         self.getsCollision = True
         
-        self.solved = False
-        
-        self.reset()
-        self.scramble()
-        self.muted = False
-        
+        self.exitCode = 0
+
+        if self.onEnter != None:
+            self.onEnter(self)
+        #end if
+
         return
-    #end show
-    
-    def reset(self):
-        self.tiles = [
-            Tile(i)
-            for i in range(self.size ** 2)
-        ]
+    #end enter
+
+    def exit(self):
+        self.getsTick = False
+        self.getsInput = False
+        self.getsKeyboardInput = False
+        self.getsMouseInput = False
+        self.getsJoystickInput = False
+        self.getsUpdate = False
+        self.getsRender = False
+        self.getsCollision = False
         
-        for i in range(self.size ** 2):
-            self.tiles[i].x = self.tilePositions[i][0]
-            self.tiles[i].y = self.tilePositions[i][1]
+        self.exitCode = 0
+
+        if self.onExit != None:
+            self.onExit(self)
+        #end if
+
+        return
+    #end exit
+#end State
+
+#-------------------------------------------------------------------------------
+#   App
+#-------------------------------------------------------------------------------
+
+class Game(Entity):
+    def __init__(self, x, y, w, h):
+        super().__init__(x, y, w, h, None)
+        
+        self.renderMode = RENDERMODE_STRETCH
+        self.states = []
+
+        self.frameTimer = 1000 / 40
+        self.frameDt = 0
+
+        self.running = False
+
+        self.onStart = None
+        self.onQuit = None
+        
+        self.onKeysDown = None
+        self.onMouseDown = None
+        
+        self.onJoyDeviceAdded = None
+        self.onJoyDeviceRemoved = None
+        self.onJoyButtonsDown = None
+        
+
+        return
+    #end __init__
+
+    def tick(self, dt):
+        self.frameDt = pg.time.get_ticks() - self.lastTick
+        
+        while self.frameDt < self.frameTimer:
+            self.frameDt += pg.time.get_ticks() - self.lastTick
+        #end while
+            
+        for state in self.states:
+            state.tick(self.frameDt)
         #end for
-        
+            
+        super().tick(self.frameDt)
+
         return
-    #end reset
-    
-    def scramble(self):
-        self.muted = True
-        
-        for i in range(1000):
-            TileBoard.moveTile(self, choice((pg.K_UP,pg.K_DOWN,pg.K_LEFT,pg.K_RIGHT)))
-        #end for
-        
-        return
-    #end scramble
-    
-    def checkIfSolved(self):
-        self.solved = True
-        
-        for i in range(self.size ** 2):
-            if self.tiles[i].id != i:
-                self.solved = False
-                break
-            #end if
-        #end for
-        
-        return
-    #end checkIfSolved
-    
-    @staticmethod
-    def moveTile(self, key):
-        freeSpaceIndex = 0
-        
-        for i in range(self.size ** 2):
-            if self.tiles[i].id == 0:
-                freeSpaceIndex = i
-                break
+    #end tick
+
+    def handleInput(self, event):
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                self.running = False
+
+                return
+            else:
+                for state in self.states:
+                    state.handleInput(event)
+                #end for
+
+                super().handleInput(event)
             #end if
         #end for
                 
-        northTile = freeSpaceIndex - self.size
-        southTile = freeSpaceIndex + self.size
-        westTile = freeSpaceIndex - 1
-        eastTile = freeSpaceIndex + 1
+        getInputStates()
         
-        if key == pg.K_UP and northTile >= 0 and northTile < self.size ** 2 and int(northTile / self.size) < int(freeSpaceIndex / self.size):
-            temp = self.tiles[freeSpaceIndex]
-            self.tiles[freeSpaceIndex] = self.tiles[northTile]
-            self.tiles[northTile] = temp
-            
-            if self.muted == False:
-                self.slideSFX.play()
+        if self.getsInput == True:
+            if self.getsKeyboardInput == True:
+                if self.onKeysDown != None:
+                    self.onKeysDown(self, KEYSDOWN)
+                #end if
             #end if
-        elif key == pg.K_DOWN and southTile >= 0 and southTile < self.size ** 2 and int(southTile / self.size) > int(freeSpaceIndex / self.size):
-            temp = self.tiles[freeSpaceIndex]
-            self.tiles[freeSpaceIndex] = self.tiles[southTile]
-            self.tiles[southTile] = temp
-            
-            if self.muted == False:
-                self.slideSFX.play()
-            #end if
-        elif key == pg.K_LEFT and westTile >= 0 and westTile < self.size ** 2 and int(westTile % self.size) < int(freeSpaceIndex % self.size):
-            temp = self.tiles[freeSpaceIndex]
-            self.tiles[freeSpaceIndex] = self.tiles[westTile]
-            self.tiles[westTile] = temp
-            
-            if self.muted == False:
-                self.slideSFX.play()
-            #end if
-        elif key == pg.K_RIGHT and eastTile >= 0 and eastTile < self.size ** 2 and int(eastTile % self.size) > int(freeSpaceIndex % self.size):
-            temp = self.tiles[freeSpaceIndex]
-            self.tiles[freeSpaceIndex] = self.tiles[eastTile]
-            self.tiles[eastTile] = temp
-            
-            if self.muted == False:
-                self.slideSFX.play()
+                    
+            if self.getsMouseInput == True:
+                if self.onMouseDown != None:
+                    self.onMouseDown(self, MOUSEDOWN)
+                #end if
             #end if
         #end if
         
         return
-    #end moveTile
-#end TileBoard
-    
-class PlayState(State):    
-    def __init__(self):
-        super().__init__(0,0,REND_W,REND_H)
-        
-        self.renderMode = RENDERMODE_STRETCH
-        self.boardSize = 3
-        
-        self.board3 = TileBoard(3)
-        self.board4 = TileBoard(4)
-        self.board5 = TileBoard(5)
-        
-        self.entities = [
-            self.board3
-            ,self.board4
-            ,self.board5
-        ]
-        
-        self.onEnter = PlayState.setUpBoard
-        
-        PlayState.setUpBoard(self)
-        
-        return
-    #end __init__
-    
+    #end handleInput
+
     def update(self):
+        for state in self.states:
+            state.update()
+        #end for
+
         super().update()
-        
-        if self.boardSize == 3 and self.board3.solved == True:
-            self.exitCode = STATE_MENU
-        elif self.boardSize == 4 and self.board4.solved == True:
-            self.exitCode = STATE_MENU
-        elif self.boardSize == 5 and self.board5.solved == True:
-            self.exitCode = STATE_MENU
-        #end if
-        
+
         return
     #end update
-    
-    @staticmethod
-    def setUpBoard(self):
-        if self.boardSize == 4:
-            self.board3.hide()
-            self.board4.show()
-            self.board5.hide()
-        elif self.boardSize == 5:
-            self.board3.hide()
-            self.board4.hide()
-            self.board5.show()
-        else:
-            self.board3.show()
-            self.board4.hide()
-            self.board5.hide()
-        #end if
-        
-        return
-    #end setUpBoard
-#end PlayState
 
-class SlidePuzzleGame(Game):
-    def __init__(self):
-        super().__init__(0,0,REND_W,REND_H)
+    def render(self, renderTarget):
+        self.img.fill(COLOR_DEFAULT)
         
-        self.renderMode = RENDERMODE_STRETCH
-        
-        self.introState = IntroState()
-        self.introState.exit()
-        self.menuState = MenuState()
-        self.menuState.exit()
-        self.playState = PlayState()
-        self.playState.exit()
-        
-        self.activeState = STATE_INTRO
-        
-        self.introState.enter()
-        
-        self.states = [
-            self.introState
-            ,self.menuState
-            ,self.playState
-        ]
-        
-        self.onTick = SlidePuzzleGame.tickSlidePuzzle
-        self.onKeyPressed = SlidePuzzleGame.reset
-        
-        return
-    #end __init__
-    
-    @staticmethod
-    def tickSlidePuzzle(target, dt):
-        for state in target.states:
-            if state.exitCode > 0:
-                if state.exitCode == STATE_INTRO:
-                    target.activeState = STATE_INTRO
-                    target.introState.enter()
-                elif state.exitCode == STATE_MENU:
-                    target.activeState = STATE_MENU
-                    target.menuState.enter()
-                elif state.exitCode == STATE_PLAY_3:
-                    target.activeState = STATE_PLAY_3
-                    target.playState.boardSize = 3
-                    target.playState.enter()
-                elif state.exitCode == STATE_PLAY_4:
-                    target.activeState = STATE_PLAY_4
-                    target.playState.boardSize = 4
-                    target.playState.enter()
-                elif state.exitCode == STATE_PLAY_5:
-                    target.activeState = STATE_PLAY_5
-                    target.playState.boardSize = 5
-                    target.playState.enter()
-                #end if
-                
-                state.exit()
-            #end if
+        for state in self.states:
+            state.render(self.img)
         #end for
-        
+
+        super().render(renderTarget)
+        pg.display.flip()
+
         return
-    #end tickSlidePuzzle
-    
-    @staticmethod
-    def reset(target, key):
-        if key == pg.K_ESCAPE:
-            if target.activeState in (STATE_PLAY_3, STATE_PLAY_4, STATE_PLAY_5):
-                target.playState.exitCode = STATE_MENU
-            #end if
+    #end render
+
+    def run(self):
+        self.running = True
+
+        if self.onStart != None:
+            self.onStart(self)
         #end if
+
+        while self.running == True:
+            self.tick(0)
+            self.handleInput(None)
+            self.update()
+            self.render(DISPLAY)
+        #end while
+
+        if self.onQuit != None:
+            self.onQuit(self)
+        #end if
+
+        pg.quit()
+
+        return
+    #end run
+    
+    def pushState(self, state):
+        self.states.append(state)
+        
+        state.enter()
         
         return
-    #end reset
-#end SlidePuzzleGame
+    #end pushState
+    
+    def popState(self, index):
+        self.states[index].exit()
+        self.states.pop(index)
+        
+        return
+    #end popState
+#end App
+
+#-------------------------------------------------------------------------------
+#   Functions
+#-------------------------------------------------------------------------------
+
+def initSimpleGE(dispW, dispH, dispFlags, title):
+    global DISP_W, DISP_H, DISPLAY, KEYSDOWN, MOUSEDOWN
+
+    pg.init()
+    
+    DISP_W = dispW
+    DISP_H = dispH
+    DISP_FLAGS = dispFlags
+    
+    DISPLAY = pg.display.set_mode((DISP_W, DISP_H), DISP_FLAGS)
+    pg.display.set_caption(title)
+    
+    KEYSDOWN = pg.key.get_pressed()
+    MOUSEDOWN = pg.mouse.get_pressed()
+
+    return
+#end return
+
+def getInputStates():
+    global KEYSDOWN, MOUSEDOWN
+    
+    KEYSDOWN = pg.key.get_pressed()
+    MOUSEDOWN = pg.mouse.get_pressed()
+    
+    return
+#end getInputStates
 
 def main():
-    initSimpleGE(REND_W * REND_SCALE,REND_H * REND_SCALE,0,"Slide Puzzle")
+    initSimpleGE(800,600,0,"Test")
+
+    entity = Entity(0,0,200,200,None)
+    entity.img.fill((255,0,0))
+    entity.clipRect.w = 100
     
-    slidePuzzleGame = SlidePuzzleGame()
-    slidePuzzleGame.run()
+    state = State(0,0,400,400,[entity])
+    state.renderMode = 1
+    app = Game(0,0,800,800,[state])
+    app.renderMode = 1
     
+    app.run()
+
     return
 #end main
 
