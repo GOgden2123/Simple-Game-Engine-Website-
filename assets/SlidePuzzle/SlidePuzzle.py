@@ -14,6 +14,8 @@ STATE_PLAY_3 = 3
 STATE_PLAY_4 = 4
 STATE_PLAY_5 = 5
 
+JOY_OK = 2
+
 class IntroState(State):
     def __init__(self):
         super().__init__(0,0,REND_W,REND_H)
@@ -73,9 +75,43 @@ class MenuState(State):
         self.selectSFX = pg.mixer.Sound('sfx/select.wav')
         
         self.onKeyPressed = MenuState.moveSelector
+        self.onJoyHatMotion = MenuState.handleJoyHatMotion
+        self.onJoyButtonPressed = MenuState.handleJoyButton
         
         return
     #end __init__
+    
+    @staticmethod
+    def handleJoyHatMotion(self, joyid, hat, value):
+        if value[0] < 0:
+            MenuState.moveSelector(self,pg.K_LEFT)
+        elif value[0] > 0:
+            MenuState.moveSelector(self,pg.K_RIGHT)
+        elif value[1] < 0:
+            MenuState.moveSelector(self,pg.K_DOWN)
+        elif value[1] > 0:
+            MenuState.moveSelector(self,pg.K_UP)
+        #end if
+        
+        return
+    #end handleJoyHatMotion
+    
+    @staticmethod
+    def handleJoyButton(self, joyid, button):
+        if button == JOY_OK:
+            self.selectSFX.play()
+            
+            if self.selectorInd == 0:
+                self.exitCode = STATE_PLAY_3
+            elif self.selectorInd == 1:
+                self.exitCode = STATE_PLAY_4
+            elif self.selectorInd == 2:
+                self.exitCode = STATE_PLAY_5
+            #end if
+        #end if
+        
+        return
+    #end
     
     @staticmethod
     def moveSelector(target, key):        
@@ -154,6 +190,7 @@ class TileBoard(Entity):
         self.hide()
         
         self.onKeyPressed = TileBoard.moveTile
+        self.onJoyHatMotion = TileBoard.handleJoyHatMotion
         
         return
     #end __init__
@@ -305,6 +342,21 @@ class TileBoard(Entity):
         
         return
     #end moveTile
+    
+    @staticmethod
+    def handleJoyHatMotion(self, joyid, hat, value):
+        if value[0] < 0:
+            TileBoard.moveTile(self,pg.K_LEFT)
+        elif value[0] > 0:
+            TileBoard.moveTile(self,pg.K_RIGHT)
+        elif value[1] < 0:
+            TileBoard.moveTile(self,pg.K_DOWN)
+        elif value[1] > 0:
+            TileBoard.moveTile(self,pg.K_UP)
+        #end if
+        
+        return
+    #end handleJoyHatMotion
 #end TileBoard
     
 class PlayState(State):    
@@ -449,5 +501,3 @@ def main():
 if __name__ == '__main__':
     main()
 #end if
-
-

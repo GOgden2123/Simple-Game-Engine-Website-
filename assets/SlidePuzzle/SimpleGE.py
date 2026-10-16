@@ -23,6 +23,11 @@ KEYSDOWN = None
 MOUSEDOWN = None
 JOYDOWN = None
 
+JOYSTICK0 = None
+JOYSTICK1 = None
+JOYSTICK2 = None
+JOYSTICK3 = None
+
 #-------------------------------------------------------------------------------
 #   Entity
 #-------------------------------------------------------------------------------
@@ -528,6 +533,7 @@ class Game(Entity):
 
 def initSimpleGE(dispW, dispH, dispFlags, title):
     global DISP_W, DISP_H, DISPLAY, KEYSDOWN, MOUSEDOWN
+    global JOYSTICK0, JOYSTICK1, JOYSTICK2, JOYSTICK3
 
     pg.init()
     
@@ -540,6 +546,24 @@ def initSimpleGE(dispW, dispH, dispFlags, title):
     
     KEYSDOWN = pg.key.get_pressed()
     MOUSEDOWN = pg.mouse.get_pressed()
+    
+    numJoysticks = pg.joystick.get_count()
+    
+    if numJoysticks == 1:
+        JOYSTICK0 = pg.joystick.Joystick(0)
+    elif numJoysticks == 2:
+        JOYSTICK0 = pg.joystick.Joystick(0)
+        JOYSTICK1 = pg.joystick.Joystick(1)
+    elif numJoysticks == 3:
+        JOYSTICK0 = pg.joystick.Joystick(0)
+        JOYSTICK1 = pg.joystick.Joystick(1)
+        JOYSTICK2 = pg.joystick.Joystick(2)
+    elif numJoysticks > 3:
+        JOYSTICK0 = pg.joystick.Joystick(0)
+        JOYSTICK1 = pg.joystick.Joystick(1)
+        JOYSTICK2 = pg.joystick.Joystick(2)
+        JOYSTICK3 = pg.joystick.Joystick(3)
+    #end if
 
     return
 #end return
@@ -555,17 +579,9 @@ def getInputStates():
 
 def main():
     initSimpleGE(800,600,0,"Test")
-
-    entity = Entity(0,0,200,200,None)
-    entity.img.fill((255,0,0))
-    entity.clipRect.w = 100
     
-    state = State(0,0,400,400,[entity])
-    state.renderMode = 1
-    app = Game(0,0,800,800,[state])
-    app.renderMode = 1
-    
-    app.run()
+    game = Game(0,0,800,600)
+    game.run()
 
     return
 #end main
@@ -573,4 +589,3 @@ def main():
 if __name__ == '__main__':
     main()
 #end if
-
