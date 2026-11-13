@@ -92,6 +92,7 @@ class Entity:
         #Callback Functions
 
         self.onTick = None
+        self.onInput = None
         self.onUpdate = None
         self.onRender = None
         self.onCollide = None
@@ -176,6 +177,10 @@ class Entity:
                     #end if
                 #endif
             #end if
+                        
+            if self.onInput != None:
+                self.onInput(self, event)
+            #end if
         #end if
 
         return
@@ -223,7 +228,7 @@ class Entity:
         #end if
                 
         if self.debug == True:
-            self.debug(renderTarget)
+            self.debugRect(renderTarget)
         #end if
 
         return
@@ -231,7 +236,7 @@ class Entity:
     
     def debugRect(self, renderTarget):
         pg.draw.rect(renderTarget, (255,0,0), (self.x,self.y,self.w,self.h), 1)
-        pg.draw.rect(renderTarget, (0,0,255), (self.hitX,self.hitY,self.hitW,self.hitH), 1)
+        pg.draw.rect(renderTarget, (0,0,255), self.hitRect, 1)
         
         return
     #end debugRect
@@ -316,7 +321,7 @@ class State(Entity):
 
         super().update()
         
-        self.checkCollisions()
+        #self.checkCollisions()
 
         return
     #end update
@@ -386,7 +391,7 @@ class State(Entity):
 #end State
 
 #-------------------------------------------------------------------------------
-#   App
+#   Game
 #-------------------------------------------------------------------------------
 
 class Game(Entity):
@@ -402,6 +407,7 @@ class Game(Entity):
         self.running = False
 
         self.onStart = None
+        self.onRun = None
         self.onQuit = None
         
         self.onKeysDown = None
@@ -500,6 +506,10 @@ class Game(Entity):
             self.handleInput(None)
             self.update()
             self.render(DISPLAY)
+            
+            if self.onRun != None:
+                self.onRun(self)
+            #end if
         #end while
 
         if self.onQuit != None:
